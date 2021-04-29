@@ -8,8 +8,8 @@ if %LIBName%. == . goto MissingEnvironmentVariables
 if %BuildMode%. == . goto MissingEnvironmentVariables
 if %HB_COMPILER%. ==. goto MissingEnvironmentVariables
 
-if not exist %LIBName%.hbp (
-    echo Invalid Workspace Folder. Missing file %LIBName%.hbp
+if not exist %LIBName%_windows.hbp (
+    echo Invalid Workspace Folder. Missing file %LIBName%_windows.hbp
     goto End
 )
 
@@ -33,53 +33,55 @@ echo HB_PATH     = %HB_PATH%
 echo HB_COMPILER = %HB_COMPILER%
 echo PATH        = %PATH%
 
-md %HB_COMPILER% 2>nul
-md %HB_COMPILER%\%BuildMode% 2>nul
-md %HB_COMPILER%\%BuildMode%\hbmk2 2>nul
+md build 2>nul
+md build\win64 2>nul
+md build\win64\%HB_COMPILER% 2>nul
+md build\win64\%HB_COMPILER%\%BuildMode% 2>nul
+md build\win64\%HB_COMPILER%\%BuildMode%\hbmk2 2>nul
 
-del %HB_COMPILER%\%BuildMode%\*.a 2>nul
-del %HB_COMPILER%\%BuildMode%\*.lib 2>nul
+rem the following will output the current datetime
+for /F "tokens=2" %%i in ('date /t') do set mydate=%%i
+set mytime=%time%
+echo local l_cBuildInfo := "%HB_COMPILER% %BuildMode% %mydate% %mytime%">BuildInfo.txt
+
+del build\win64\%HB_COMPILER%\%BuildMode%\*.a 2>nul
+del build\win64\%HB_COMPILER%\%BuildMode%\*.lib 2>nul
 
 ::  -b        = debug
 ::  -w3       = warn for variable declarations
 ::  -es2      = process warning as errors
 ::  -p        = Leave generated ppo files
 
-:: since this is a library will also fail on warnings.
+copy *.ch build\win64\%HB_COMPILER%\%BuildMode%\
+del build\win64\%HB_COMPILER%\%BuildMode%\*.ppo
 
+:: since this is a library will also fail on warnings.
 if %BuildMode% == debug (
     copy debugger_on.hbm debugger.hbm
-rem hbmk2 %LIBName%.hbp -b -p -w3 -es2
-    hbmk2 %LIBName%.hbp -b -p -w3
+    hbmk2 %LIBName%_windows.hbp -b -p -w3 -dDONOTINCLUDE -shared
 ) else (
     copy debugger_off.hbm debugger.hbm
-    copy *.ch %HB_COMPILER%\%BuildMode%\
-    del %HB_COMPILER%\%BuildMode%\*.ppo
-rem	hbmk2 %LIBName%.hbp -w3 -es2
-    hbmk2 %LIBName%.hbp -w3
+    hbmk2 %LIBName%_windows.hbp -w3 -dDONOTINCLUDE -fullstatic
 )
 
+echo Current time is %mydate% %mytime%
+
 set SUCCESS=F
-if exist %HB_COMPILER%\%BuildMode%\lib%LIBName%.a (set SUCCESS=T)
-if exist %HB_COMPILER%\%BuildMode%\%LIBName%.lib  (set SUCCESS=T)
+if exist build\win64\%HB_COMPILER%\%BuildMode%\lib%LIBName%.a (set SUCCESS=T)
+if exist build\win64\%HB_COMPILER%\%BuildMode%\%LIBName%.lib  (set SUCCESS=T)
 
 if %SUCCESS% == F (
     echo Failed To build Library
 ) else (
     if errorlevel 0 (
 rem     since debug and release have different .hbx file, localize it
-        copy %LIBName%.hbx %HB_COMPILER%\%BuildMode%\ >nul
-        del %LIBName%.hbx >nul
+        copy %LIBName%_windows.hbx build\win64\%HB_COMPILER%\%BuildMode%\ >nul
+        del %LIBName%_windows.hbx >nul
 
         echo.
         echo No Errors
         echo.
         echo Ready          BuildMode = %BuildMode%          C Compiler = %HB_COMPILER%
-        if %BuildMode% == release (
-rem            echo -----------------------------------------------------------------------------------------------
-rem            echo.
-rem            echo -----------------------------------------------------------------------------------------------
-        )
     ) else (
         echo Compilation Error
         if errorlevel  1 echo Unknown platform
